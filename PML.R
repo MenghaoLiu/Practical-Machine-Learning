@@ -87,3 +87,5 @@ pml_write_files = function(x){
 }
 pml_write_files(answers)
 
+# Print system information 
+Sys.info()
