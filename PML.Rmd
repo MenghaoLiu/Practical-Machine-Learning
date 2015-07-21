@@ -1,0 +1,132 @@
+---
+title: "Practical Machine Learning Project: Quantify the Modes of Human Movements"
+author: "Menghao Liu"
+---
+
+## Synopsis 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit is now possible to collect a large amount of data about personal activity relatively inexpensively. In this report, we aim to use the data from accelerometers placed on the belt, forearm, arm, and dumbell of six participants to predict their modes of doing the exercise. 
+
+## Getting and cleaning data  
+
+Firstly, We get the [training](http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv) data and  [test](http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv) data for this project from the web [source](http://groupware.les.inf.puc-rio.br/har). The following code chunk download the datasets and load them into R. 
+
+```{r}
+# Set the working directory
+if (!file.exists("PML")) {
+    dir.create("PML")
+}
+setwd("PML")
+
+# Download the raw datasets
+if (!file.exists("training.csv") | !file.exists("testing.csv")) {
+    url1 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+    url2 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+    download.file(url1, destfile = "training.csv")
+    download.file(url2, destfile = "testing.csv")
+}
+
+# Load the data into R
+trainDT <- read.csv("training.csv", na.strings = c("NA", ""))
+testDT <- read.csv("testing.csv", na.strings = c("NA", ""))
+dim(trainDT); dim(testDT)
+```
+
+We can see the **trainDT** raw dataset contains 160 variables and 19622 observations, whereas the dimension of **testDT** is 20 x 160. In addition, the **classe** variable in trainDT is a response variable for model construction and variable **problem_id** in testDT is the case number uesd for naming the outcome of the prediction. 
+
+To clean the data, we should deal with the NAs and select the appropriate variables to build the model. As for NAs, we simply remove all the columns containing one or more missing value. Also, we filter several identifier features which are useless for our prediction and get the final tidy dataset with 52 numeric variable and a response variable. 
+
+```{r}
+# Remove columns with NA
+naNum <- sapply(trainDT, function(x) {sum(is.na(x))})
+trainClean <- trainDT[, naNum == 0]
+
+# Remove variables wchich are unimportant for the sensor records
+trainFinal <- trainClean[, -(1:7)]
+remove(trainDT, trainClean)
+```
+
+## Model construction 
+
+To build the model, we split the tidy data into a training set (70%) and a testing set (30%). Then, We build a model to predict the modes of human movements using default **Random Forest** algorithm which can deal with many variables and detect their interactions to produce a classifier with high accuracy. We also use a 5-fold cross validation when training the data. 
+
+```{r, warning = F, message = F}
+# Slice the data with 70% for training and 30% for testing
+if(!is.element("caret", installed.packages()[,1])) {
+    print("Installing packages")
+    install.packages("caret")
+}
+library(caret)
+inTrain <- createDataPartition(y = trainFinal$classe, p = .7, list = F)
+training <- trainFinal[inTrain, ]
+testing <- trainFinal[-inTrain, ]
+
+# Build a prediction model using Random Forest
+if(!is.element("doParallel", installed.packages()[,1])) {
+    print("Installing packages")
+    install.packages("doParallel")
+}
+library(doParallel) 
+registerDoParallel(cores = 3)  # A little bit faster in the computation
+set.seed(12345)                # Make the results reproducible
+mod <- train(classe ~ ., 
+              data = training, # About 4 minutes on my PC with Intel 
+              method = "rf",   # Xeon E3-1231 v3 CPU and 16Gb memory 
+              trControl = trainControl(method = "cv", number = 5))
+```
+
+## Model evaluation 
+
+We can evaluate the model by applying it on the testing data. With confusionMatrix() FUN, we can see this model yields a 99.5% accuracy and a 0.993 Kappa value (kappa is a measure of agreement normalized for chance agreement), indicating the classifier is robust and sufficient to precidt the new dataset. 
+
+```{r}
+pred <- predict(mod, testing)
+confusionMatrix(pred, testing$classe)
+```
+
+Here we make a scatter plot showing the overall prediction accuracy on testing set. We can see only few samples indicated with red dots are wrongly predicted by our model among about six thousand cases.
+
+```{r, warning = F, message = F, fig.align = "center", fig.width = 6, fig.height = 6}
+if(!is.element("ggplot2", installed.packages()[,1])) {
+    print("Installing packages")
+    install.packages("ggplot2")
+}
+testing$predRight <- pred == testing$classe
+p <- ggplot(testing, aes(roll_belt, pitch_belt)) + 
+    labs(title = "Prediction on the testing dataset")
+p + geom_point(aes(color = predRight)) + 
+    theme(plot.title = element_text(size = 20, vjust = 2.0)) + 
+    theme(axis.title.x = element_text(size = 15, vjust = 0.2)) + 
+    theme(axis.title.y = element_text(size = 15, vjust = 1.0)) + 
+    theme(axis.text.x = element_text(size = 12, color = "grey60")) + 
+    theme(axis.text.y = element_text(size = 12, color = "grey60")) + 
+    theme(panel.background = element_blank()) + 
+    theme(panel.background = element_rect(color = "black")) + 
+    theme(legend.position = c(0.9, 0.9))
+```
+
+
+## Prediction on the original test data 
+
+At last, we predict the original test data containing 20 cases using above model and store the results. We get a 100% accurracy (20/20) in the submission part of the course project, again proved to be a good model. 
+
+```{r}
+# Predict the original test data downloaded from the web
+answers <- predict(mod, testDT)
+answers
+
+# Write the answers into .txt files
+pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0("problem_id_", i, ".txt")
+        write.table(x[i], file=filename, quote=FALSE, 
+                    row.names=FALSE, col.names=FALSE)
+    }
+}
+pml_write_files(answers)
+```
+
+```{r}
+Sys.info()
+```
