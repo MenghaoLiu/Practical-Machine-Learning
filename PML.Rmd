@@ -86,7 +86,7 @@ confusionMatrix(pred, testing$classe)
 
 Here we make a scatter plot showing the overall prediction accuracy on testing set. We can see only few samples indicated with red dots are wrongly predicted by our model among about six thousand cases.
 
-```{r, warning = F, message = F, fig.align = "center", fig.width = 6, fig.height = 6}
+```{r, fig.align = "center", fig.width = 6, fig.height = 6}
 if(!is.element("ggplot2", installed.packages()[,1])) {
     print("Installing packages")
     install.packages("ggplot2")
