@@ -50,7 +50,7 @@ remove(trainDT, trainClean)
 
 To build the model, we split the tidy data into a training set (70%) and a testing set (30%). Then, We build a model to predict the modes of human movements using default **Random Forest** algorithm which can deal with many variables and detect their interactions to produce a classifier with high accuracy. We also use a 5-fold cross validation when training the data. 
 
-```{r, warning = F, message = F}
+```{r}
 # Slice the data with 70% for training and 30% for testing
 if(!is.element("caret", installed.packages()[,1])) {
     print("Installing packages")
