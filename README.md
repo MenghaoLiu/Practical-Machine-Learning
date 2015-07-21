@@ -1,3 +1,3 @@
 # Pratical-Machine-Learning
 
-For coursera mooc pratical machine learning class. 
+For coursera mooc pratical machine learning course. 
